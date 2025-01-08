@@ -47,3 +47,6 @@ jobs:
           url: ${{ secrets.PORTAINER_WEBHOOK }}
           method: POST
           preventFailureOnNoResponse: true
+
+      - name: Cleanup Unused Images
+        run: docker image prune -f
