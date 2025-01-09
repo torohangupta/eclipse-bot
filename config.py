@@ -8,5 +8,5 @@ gamestate_path = os.environ.get("gamestate_path")
 
 def update_game_number():
     with open("config.json", "w") as f:
-        data["game_number"] += 1
-        json.dump(data, f)
+        game_number += 1
+        json.dump(game_number, f)
