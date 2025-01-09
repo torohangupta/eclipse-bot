@@ -1,12 +1,9 @@
 import json
+import os
 
-
-with open("config.json", "r") as f:
-    data = json.load(f)
-    token = data["token"]
-    game_number = data["game_number"]
-    gamestate_path = data["gamestate_path"]
-    f.close()
+token = os.environ.get("token")
+game_number = os.environ.get("game_number")
+gamestate_path = os.environ.get("gamestate_path")
 
 
 def update_game_number():
