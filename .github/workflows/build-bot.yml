@@ -38,8 +38,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          context: .
           push: true
-          tags: user/app:latest
+          # username: ${{ secrets.GHCR_USERNAME }}
+          # password: ${{ secrets.GHCR_PASSWORD }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Send POST request to auto-refresh
         uses: fjogeleit/http-request-action@v1
