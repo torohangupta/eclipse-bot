@@ -13,6 +13,18 @@ from helpers.DrawHelper import DrawHelper
 class SetupCommands(commands.GroupCog, name="setup"):
     def __init__(self, bot):
         self.bot = bot
+    ai_choices = [app_commands.Choice(name="Default", value="def"),
+                  app_commands.Choice(name="Advanced", value="adv"),
+                  app_commands.Choice(name="Worlds Apart", value="wa"),
+                  app_commands.Choice(name="Random And Seperate", value="random")]
+
+    ai_choices2 = [app_commands.Choice(name="Default", value="def"),
+                  app_commands.Choice(name="Advanced", value="adv"),
+                  app_commands.Choice(name="Worlds Apart", value="wa")]
+
+    ai_ship_choices = [app_commands.Choice(name="GCDS", value="gcds"),
+                  app_commands.Choice(name="Ancient", value="anc"),
+                  app_commands.Choice(name="Guardian", value="grd")]
 
     factionChoices = [app_commands.Choice(name="Hydran Progress", value="hyd"),
                       app_commands.Choice(name="Eridani Empire", value="eri"),
@@ -30,10 +42,17 @@ class SetupCommands(commands.GroupCog, name="setup"):
                       app_commands.Choice(name="Terran Federation (Hydran)", value="ter4"),
                       app_commands.Choice(name="Terran Republic (Draco)", value="ter5"),
                       app_commands.Choice(name="Terran Union (Planta)", value="ter6"),]
+    
+    @app_commands.choices(ai_ship_type=ai_choices2)
+    @app_commands.choices(ai_ship=ai_ship_choices)
+    @app_commands.command(name="ai_ships")
+    async def ai_ships(self, interaction: discord.Interaction, ai_ship:app_commands.Choice[str], ai_ship_type:app_commands.Choice[str]):
+        game = GamestateHelper(interaction.channel)
+        await interaction.response.defer()
+        game.changeShip(ai_ship.value, ai_ship_type.value)
+        await interaction.followup.send("Successfully changed the AI "+ai_ship.name+" to have "+ai_ship_type.name + " stats")
 
-    ai_choices = [app_commands.Choice(name="Default", value="def"),
-                  app_commands.Choice(name="Advanced", value="adv"),
-                  app_commands.Choice(name="Worlds Apart", value="wa")]
+    
 
     @app_commands.command(name="game")
     @app_commands.choices(faction1=factionChoices, faction2=factionChoices, faction3=factionChoices,
@@ -134,14 +153,14 @@ class SetupCommands(commands.GroupCog, name="setup"):
                               galactic_event_tiles: Optional[bool] = False,
                               hyperlanes: Optional[bool] = False,
                               community_parts: Optional[bool] = False,
-                              tournament: Optional[bool] = False):
+                              ban_factions: Optional[bool] = False):
         """
         :param ai_ship_type: Choose which type of AI ships to use.
         :param rift_cannon: Rift cannons are enabled by default.
         :param turn_order_variant: Pass turn order is enabled by default.
         :param galactic_event_tiles: Supernova/black-holes/Pulsars are disabled by default.
         :param hyperlanes: Hyperlanes for 4p and 5p are default off.
-        :param tournament: Used to keep track of tournament games.
+        :param ban_factions: Used to ban 10-playerCount factions from the draft.
         :param community_parts: Turns on commnity changes to improved hull and phase shield.
         :return:
         """
@@ -204,17 +223,28 @@ class SetupCommands(commands.GroupCog, name="setup"):
         actions = await interaction.guild.create_text_channel(f'aeb{config.game_number}-actions',
                                                               category=category, overwrites=overwrites)
         thread_name = f'aeb{config.game_number}-bot-map-updates'
-        thread = await actions.create_thread(name=thread_name, auto_archive_duration=10080)
+        thread = await actions.create_thread(name=thread_name, auto_archive_duration=10080,type=discord.ChannelType.public_thread)
         new_game.update_num()
         game = GamestateHelper(actions)
         if player_count < 2:
             player_count = 2
         if player_count > 9:
             player_count = 9
+        msgBig = ""
+        if hyperlanes:
+            if player_count != 4 and player_count != 5:
+                hyperlanes = False
+                msgBig += "## Hyperlanes cannot be enabled in anything except 4 or 5 player games at the moment, so they have not been enabled for this game"
+            else:
+                msgBig +="## Hyperlanes have been enabled for this game"
+        if galactic_event_tiles:
+            msgBig += "\n## Galactic Event Tiles have been added to this game"
+        if rift_cannon:
+            msgBig += "\n## Rift Cannons have been added to this game"
+        if msgBig != "":
+            await actions.send(msgBig)
+
         game.setup_techs_and_outer_rim(player_count, galactic_event_tiles, hyperlanes)
-        if tournament:
-            game.initilizeKey("Tournament Game")
-            game.addToKey("Tournament Game","Yes")
         drawing = DrawHelper(game.gamestate)
 
 
@@ -240,7 +270,7 @@ class SetupCommands(commands.GroupCog, name="setup"):
                            file=drawing.show_minor_species())
         file = await asyncio.to_thread(drawing.show_AI_stats)
         await actions.send("AI stats look like this", file=file)
-        await DraftButtons.startDraft(game, player_list, interaction, actions)
+        await DraftButtons.startDraft(game, player_list, interaction, actions, ban_factions)
 
         factionThread = await actions.create_thread(name="Faction Reference", auto_archive_duration=10080)
         boardPrefix = "images/resources/components/factions/"

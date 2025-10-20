@@ -96,11 +96,19 @@ class Combat:
         tiles = []
         for tile in tile_map:
             playersInTile = Combat.findPlayersInTile(game, tile)
-            if len(playersInTile) != 1:
-                continue
-            if "owner" in tile_map[tile]:
-                if tile_map[tile]["owner"] == 0 and playersInTile[0] != "ai":
-                    tiles.append((int(tile_map[tile]["sector"]), tile))
+            if len(playersInTile) == 2:
+                if "anc" in Combat.findShipTypesInTile(game, tile):
+                    if any(["Draco" in game.find_player_faction_name_from_color(playersInTile[1]),
+                            "Draco" in game.find_player_faction_name_from_color(playersInTile[0])]):
+                        if "owner" in tile_map[tile]:
+                            if tile_map[tile]["owner"] == 0:
+                                tiles.append((int(tile_map[tile]["sector"]), tile))
+            else:
+                if len(playersInTile) != 1:
+                    continue
+                if "owner" in tile_map[tile]:
+                    if tile_map[tile]["owner"] == 0 and playersInTile[0] != "ai":
+                        tiles.append((int(tile_map[tile]["sector"]), tile))
         return sorted(tiles, key=lambda x: x[0], reverse=True)
 
     @staticmethod
@@ -206,6 +214,8 @@ class Combat:
                           f" Tile {tile3[1]} Influence")
             thread3 = await message.create_thread(name=threadName)
             playerColor = Combat.findPlayersInTile(game, tile3[1])[0]
+            if playerColor == "ai":
+                playerColor = Combat.findPlayersInTile(game, tile3[1])[1]
             winner = playerColor
             pos = tile3[1]
             player = game.getPlayerObjectFromColor(playerColor)
@@ -255,7 +265,12 @@ class Combat:
                 continue
             if colorOrAI == owner:
                 if colorOrAI == "ai":
-                    ship = AI_Ship(unit, game.gamestate["advanced_ai"], game.gamestate["wa_ai"])
+                    advanced = game.gamestate["advanced_ai"]
+                    worldsafar = game.gamestate["wa_ai"]
+                    if unitType+"_type" in game.gamestate:
+                        advanced = "adv" in game.gamestate[unitType+"_type"]
+                        worldsafar ="wa" in game.gamestate[unitType+"_type"]
+                    ship = AI_Ship(unit, advanced, worldsafar)
                     ships.append((ship.speed, unit))
                 else:
                     player = game.get_player_from_color(colorOrAI)
@@ -293,7 +308,12 @@ class Combat:
                 continue
             if defender == owner or attacker == owner:
                 if owner == "ai":
-                    ship = AI_Ship(unit, game.gamestate["advanced_ai"], game.gamestate["wa_ai"])
+                    advanced = game.gamestate["advanced_ai"]
+                    worldsafar = game.gamestate["wa_ai"]
+                    if unitType+"_type" in game.gamestate:
+                        advanced = "adv" in game.gamestate[unitType+"_type"]
+                        worldsafar ="wa" in game.gamestate[unitType+"_type"]
+                    ship = AI_Ship(unit, advanced, worldsafar)
                     if (ship.speed, owner) not in ships:
                         ships.append((ship.speed, owner))
                     if len(ship.missile) > 0:
@@ -332,7 +352,13 @@ class Combat:
         opponentShips = Combat.getCombatantShipsBySpeed(game, opponent, playerShipsList, pos)
         for ship in opponentShips:
             if opponent == "ai":
-                shipModel = AI_Ship(ship[1], game.gamestate["advanced_ai"], game.gamestate["wa_ai"])
+                unitType = ship[1].split("-")[1]
+                advanced = game.gamestate["advanced_ai"]
+                worldsafar = game.gamestate["wa_ai"]
+                if unitType+"_type" in game.gamestate:
+                    advanced = "adv" in game.gamestate[unitType+"_type"]
+                    worldsafar ="wa" in game.gamestate[unitType+"_type"]
+                shipModel = AI_Ship(unitType, advanced, worldsafar)
             else:
                 player = game.get_player_from_color(opponent)
                 shipModel = PlayerShip(game.gamestate["players"][player], ship[1])
@@ -354,7 +380,12 @@ class Combat:
                 continue
             if colorOrAI == owner:
                 if colorOrAI == "ai":
-                    ship = AI_Ship(unit, game.gamestate["advanced_ai"], game.gamestate["wa_ai"])
+                    advanced = game.gamestate["advanced_ai"]
+                    worldsafar = game.gamestate["wa_ai"]
+                    if unitType+"_type" in game.gamestate:
+                        advanced = "adv" in game.gamestate[unitType+"_type"]
+                        worldsafar ="wa" in game.gamestate[unitType+"_type"]
+                    ship = AI_Ship(unit, advanced, worldsafar)
                     if len(ship.missile) > 0:
                         return True
                 else:
@@ -393,19 +424,45 @@ class Combat:
             #     view.add_item(Button(label="(Attacker) Roll Missiles",
             #                          style=discord.ButtonStyle.red,
             #                          custom_id=f"rollDice_{pos}_{attacker}_99_attacker"))
-            for i in range(20, -20, -1):
-                if i in defenderSpeeds:
+
+            ships = game.gamestate["board"][pos]["player_ships"][:]
+            sortedSpeeds = Combat.getBothCombatantShipsBySpeed(game, defender, attacker, ships, pos)
+            for speed, owner in sortedSpeeds:
+                if owner == defender:
                     checker = ""
                     if defender != "ai":
                         checker = "FCID" + defender + "_"
-                    view.add_item(Button(label="(Defender) Roll Initative " + str(i) + " Ships",
-                                         style=discord.ButtonStyle.green,
-                                         custom_id=f"{checker}rollDice_{pos}_{defender}_{str(i)}_defender"))
-                if i in attackerSpeeds:
+                    if speed < 90:
+                        view.add_item(Button(label="(Defender) Roll Initative " + str(speed) + " Ships",
+                                            style=discord.ButtonStyle.green,
+                                            custom_id=f"{checker}rollDice_{pos}_{defender}_{str(speed)}_defender"))
+                    else:
+                        view.add_item(Button(label="(Defender) Roll Initative " + str(speed-99) + " Missiles",
+                                            style=discord.ButtonStyle.green,
+                                            custom_id=f"{checker}rollDice_{pos}_{defender}_{str(speed)}_defender"))
+                else:
                     checker = "" if attacker == "ai" else f"FCID{attacker}_"
-                    view.add_item(Button(label="(Attacker) Roll Initative " + str(i) + " Ships",
-                                         style=discord.ButtonStyle.red,
-                                         custom_id=f"{checker}rollDice_{pos}_{attacker}_{i}_attacker"))
+                    if speed < 90:
+                        view.add_item(Button(label="(Attacker) Roll Initative " + str(speed) + " Ships",
+                                            style=discord.ButtonStyle.red,
+                                            custom_id=f"{checker}rollDice_{pos}_{attacker}_{str(speed)}_attacker"))
+                    else:
+                        view.add_item(Button(label="Attacker) Roll Initative " + str(speed-99) + " Missiles",
+                                            style=discord.ButtonStyle.red,
+                                            custom_id=f"{checker}rollDice_{pos}_{attacker}_{str(speed)}_attacker"))
+            # for i in range(20, -20, -1):
+            #     if i in defenderSpeeds:
+            #         checker = ""
+            #         if defender != "ai":
+            #             checker = "FCID" + defender + "_"
+            #         view.add_item(Button(label="(Defender) Roll Initative " + str(i) + " Ships",
+            #                              style=discord.ButtonStyle.green,
+            #                              custom_id=f"{checker}rollDice_{pos}_{defender}_{str(i)}_defender"))
+            #     if i in attackerSpeeds:
+            #         checker = "" if attacker == "ai" else f"FCID{attacker}_"
+            #         view.add_item(Button(label="(Attacker) Roll Initative " + str(i) + " Ships",
+            #                              style=discord.ButtonStyle.red,
+            #                              custom_id=f"{checker}rollDice_{pos}_{attacker}_{i}_attacker"))
         view.add_item(Button(label="Refresh Image", style=discord.ButtonStyle.blurple, custom_id=f"refreshImage_{pos}"))
         view.add_item(Button(label="Remove Units", style=discord.ButtonStyle.gray, custom_id=f"removeUnits_{pos}"))
         return view
@@ -500,7 +557,13 @@ class Combat:
         update = False
         for ship in ships:
             if ship[0] == speed or int(ship[0]+99) == speed:
-                shipModel = AI_Ship(ship[1], game.gamestate["advanced_ai"], game.gamestate["wa_ai"])
+                unitType = ship[1].split("-")[1]
+                advanced = game.gamestate["advanced_ai"]
+                worldsafar = game.gamestate["wa_ai"]
+                if unitType+"_type" in game.gamestate:
+                    advanced = "adv" in game.gamestate[unitType+"_type"]
+                    worldsafar ="wa" in game.gamestate[unitType+"_type"]
+                shipModel = AI_Ship(unitType, advanced, worldsafar)
                 name = "The AI"
                 dice = shipModel.dice
                 missiles = ""
@@ -1157,10 +1220,27 @@ class Combat:
         validTiles = []
         for tile in playerObj["owned_tiles"]:
             players = Combat.findPlayersInTile(game, tile)
-            if InfluenceButtons.areTwoTilesAdjacent(game, pos, tile, configs, wormHoleGen) and len(players) < 2:
-                if len(players) == 1 and players[0] != color:
-                    continue
-                validTiles.append(tile)
+            if InfluenceButtons.areTwoTilesAdjacent(game, pos, tile, configs, wormHoleGen):
+                if "Draco" not in player_helper.stats["name"]:
+                    if len(players) > 1:
+                        continue
+                    if len(players) == 1 and players[0] != color:
+                        continue
+                    validTiles.append(tile)
+                else:
+                    validTile = True
+                    for player in players:
+                        if player != color:
+                            if player == "ai":
+                                playerShips = game.gamestate["board"][tile]["player_ships"][:]
+                                if any("anc" in s for s in playerShips):
+                                    valid = True
+                                else:
+                                    validTile = False
+                            else:
+                                validTile = False
+                    if validTile:
+                        validTiles.append(tile)
         return validTiles
 
     @staticmethod
@@ -1312,7 +1392,12 @@ class Combat:
         shipType = ship.split("-")[1]
         shipOwner = ship.split("-")[0]
         if shipOwner == "ai":
-            shipModel = AI_Ship(shipType, game.gamestate["advanced_ai"], game.gamestate["wa_ai"])
+            advanced = game.gamestate["advanced_ai"]
+            worldsafar = game.gamestate["wa_ai"]
+            if shipType+"_type" in game.gamestate:
+                advanced = "adv" in game.gamestate[shipType+"_type"]
+                worldsafar ="wa" in game.gamestate[shipType+"_type"]
+            shipModel = AI_Ship(shipType, advanced, worldsafar)
         else:
             player = game.get_player_from_color(shipOwner)
             shipModel = PlayerShip(game.gamestate["players"][player], shipType)

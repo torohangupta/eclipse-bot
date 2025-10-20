@@ -46,6 +46,9 @@ class GamestateHelper:
         self.gamestate[key] = []
         self.update()
 
+    def changeShip(self, ship, value):
+        self.gamestate[ship+"_type"] = value
+        self.update()
     def removeFromKey(self, key, deletion):
         if deletion in self.gamestate.get(key, []):
             self.gamestate[key].remove(deletion)
@@ -862,7 +865,7 @@ class GamestateHelper:
         tech_draws = self.gamestate["player_count"] + 3
         tech_draws = min(tech_draws,11)
         newTechs = []
-        while tech_draws > 0:
+        while tech_draws > 0 and len(self.gamestate["tech_deck"]) > 0:
             random.shuffle(self.gamestate["tech_deck"])
             picked_tech = self.gamestate["tech_deck"].pop(0)
             if picked_tech == "clo":
@@ -1072,6 +1075,11 @@ class GamestateHelper:
             self.gamestate["players"][playerid][f"{tech_details['activ1']}_apt"] -= 1
             if tech_details["activ1"] == "upgrade":
                 self.gamestate["players"][playerid][f"{tech_details['activ1']}_apt"] -= 1
+        self.update()
+
+
+    def playerRemoveAncientMight(self, playerid):
+        self.gamestate["players"][playerid]["discoveryTileBonusPointTiles"] = []
         self.update()
 
     def update(self):
@@ -1330,6 +1338,14 @@ class GamestateHelper:
             else:
                 playerID = self.get_player_from_color(ar.stats["color"])
                 self.gamestate["players"][playerID] = ar.stats
+        self.update()
+
+    def change_player(self, player_id, new_player_id, new_username, new_player_name):
+        stats = self.gamestate["players"][player_id]
+        del self.gamestate["players"][player_id]
+        self.gamestate["players"][new_player_id] = stats
+        self.gamestate["players"][new_player_id]["player_name"] = new_player_name
+        self.gamestate["players"][new_player_id]["username"] = new_username
         self.update()
 
     def update_pulsar_action(self, tile, action):

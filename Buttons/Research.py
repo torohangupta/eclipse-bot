@@ -13,9 +13,9 @@ from discord.ui import View, Button
 class ResearchButtons:
     @staticmethod
     async def handle_wild_tech_selection(view: View, tech_details, tech, player):
-        for tech_type, button_style in [("grid", discord.ButtonStyle.green),
-                                        ("nano", discord.ButtonStyle.blurple),
-                                        ("military", discord.ButtonStyle.red)]:
+        for tech_type, button_style in [("military", discord.ButtonStyle.red),
+                                        ("grid", discord.ButtonStyle.green),
+                                        ("nano", discord.ButtonStyle.gray)]:
             cost = ResearchButtons.calculate_cost(tech_details, tech_type, player)
             if len(player[f"{tech_type}_tech"]) == 7:
                 continue
@@ -129,10 +129,16 @@ class ResearchButtons:
 
     @staticmethod
     def calculate_cost(tech_details, tech_type, player):
-        prev_tech_count = (
-            len(player[f"{tech_type}_tech"]) if tech_type != "any"
-            else max(len(player["nano_tech"]), len(player["grid_tech"]), len(player["military_tech"]))
-        )
+        prev_tech_count = 0
+        if tech_type != "any":
+            prev_tech_count = len(player[f"{tech_type}_tech"]) 
+        else:
+            if len(player["nano_tech"]) < 7:
+                prev_tech_count = max(len(player["nano_tech"]),prev_tech_count)
+            if len(player["grid_tech"]) < 7:
+                prev_tech_count = max(len(player["grid_tech"]),prev_tech_count)
+            if len(player["military_tech"]) < 7:
+                prev_tech_count = max(len(player["military_tech"]),prev_tech_count)
         track = [-8, -6, -4, -3, -2, -1, 0, 0]
         discount = track[6 - prev_tech_count]
         for rep in player["reputation_track"]:
@@ -171,9 +177,9 @@ class ResearchButtons:
             tech_data = json.load(f)
 
         tech_groups = {
-            "nano": [],
-            "grid": [],
             "military": [],
+            "grid": [],
+            "nano": [],
             "any": []
         }
         # Group techs by type and calculate their costs

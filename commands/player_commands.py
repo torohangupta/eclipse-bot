@@ -119,7 +119,7 @@ class PlayerCommands(commands.GroupCog, name="player"):
         await interaction.channel.send(response)
 
     @app_commands.command(name="remove_tech")
-    async def remove_tech(self, interaction: discord.Interaction, tech: str, player: Optional[discord.Member] = None):
+    async def remove_tech(self, interaction: discord.Interaction, tech: str):
         """:param tech: The ID of the tech to be removed. Type help to get a list of your tech IDs"""
         game = GamestateHelper(interaction.channel)
         player = game.get_player(interaction.user.id, interaction)
@@ -136,6 +136,12 @@ class PlayerCommands(commands.GroupCog, name="player"):
         else:
             game.playerReturnTech(str(interaction.user.id), tech, player_helper.getTechType(tech))
             await interaction.response.send_message("Successfully returned " + tech_details["name"])
+
+    @app_commands.command(name="remove_ancient_might")
+    async def remove_ancient_might(self, interaction: discord.Interaction):
+        game = GamestateHelper(interaction.channel)  
+        game.playerRemoveAncientMight(str(interaction.user.id))
+        await interaction.response.send_message("Successfully removed ancient might")
 
     actionChoices = [app_commands.Choice(name="Explore", value="explore"),
                      app_commands.Choice(name="Build", value="build"),
@@ -165,6 +171,21 @@ class PlayerCommands(commands.GroupCog, name="player"):
         player_helper = PlayerHelper(interaction.user.id, player)
         await interaction.response.defer(thinking=False)
         await ResearchButtons.startResearch(game, player, player_helper, interaction, False)
+
+    @app_commands.command(name="change_player")
+    @app_commands.choices(color=color_choices)
+    async def change_player(self, interaction: discord.Interaction, color: app_commands.Choice[str], new_player: discord.Member):
+        game = GamestateHelper(interaction.channel)
+        player = None
+        for p2 in game.gamestate["players"]:
+            if game.gamestate["players"][p2]["color"] == color.value:
+                player = p2
+        if player != None:
+            game.change_player(player, new_player.id, new_player.display_name, new_player.mention)
+        await interaction.response.defer(thinking=False)
+        drawing = DrawHelper(game.gamestate)
+        await interaction.followup.send("Successfully changed player owner to " + new_player.display_name,
+                                        file=await asyncio.to_thread(drawing.show_game))
 
     @app_commands.command(name="change_color")
     @app_commands.choices(color=color_choices)
