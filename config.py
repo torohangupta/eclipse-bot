@@ -1,5 +1,7 @@
 import json
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 token = os.environ.get("token")
 game_number = os.environ.get("game_number")

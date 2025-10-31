@@ -14,3 +14,4 @@ portalocker==3.0.0
 redis==5.2.1
 six==1.16.0
 yarl==1.9.4
+python-dotenv==1.21.1
